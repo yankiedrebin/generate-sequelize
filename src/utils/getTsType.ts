@@ -55,7 +55,7 @@ function isDate(fieldType: string): boolean {
 }
 
 function isString(fieldType: string): boolean {
-  return /^(char|nchar|string|varying|varchar|nvarchar|text|longtext|mediumtext|tinytext|ntext|uuid|uniqueidentifier|date|time|inet|cidr|macaddr|tsvector|tsquery|hstore|point|line|lseg|box|path|polygon|circle|interval|tsvector|hstore)/.test(
+  return /^(char|nchar|string|varying|varchar|nvarchar|text|citext|longtext|mediumtext|tinytext|ntext|uuid|uniqueidentifier|date|time|inet|cidr|macaddr|macaddr8|tsvector|tsquery|hstore|point|line|lseg|box|path|polygon|circle|interval|tsvector|hstore)/.test(
     fieldType,
   );
 }
