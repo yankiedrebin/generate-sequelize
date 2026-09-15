@@ -24,6 +24,12 @@ export default function getTableData(
   columnOrder?: ColumnOrder,
 ): DBData {
   const db: DBData = new Map();
+  const skipFieldsSet = options.skipFields?.length
+    ? new Set(options.skipFields)
+    : undefined;
+  const skipRelationsSet = options.skipRelations?.length
+    ? new Set(options.skipRelations)
+    : undefined;
   Object.entries(tableData.tables)
     .sort((a, b) => a[0].localeCompare(b[0]))
     .forEach(([key, table]) => {
@@ -49,6 +55,7 @@ export default function getTableData(
         );
       }
       orderedColumns.forEach(([field, col]) => {
+        if (skipFieldsSet?.has(field)) return;
         const {
           allowNull,
           autoIncrement,
@@ -156,6 +163,10 @@ export default function getTableData(
     const parentData2 = db.get(parentTableName);
     // Skip relations that reference tables excluded via skipTables/tables
     if (!childData || !parentData2) return;
+    // Skip relations whose FK field was excluded via skipFields
+    if (skipFieldsSet?.has(parentId)) return;
+    // Skip relations for FK fields listed in skipRelations (columns are kept)
+    if (skipRelationsSet?.has(parentId)) return;
     const fk = [...childData.columns.values()].find((c) => c.name === parentId);
     if (!fk) return;
     const optional = fk.definition.allowNull;

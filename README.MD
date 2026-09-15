@@ -575,6 +575,8 @@ export interface GeneratorOptions {
   skipTables?: string[];
   /** Fields to skip exporting */
   skipFields?: string[];
+  /** FK fields whose relations should not be generated (columns are kept) */
+  skipRelations?: string[];
   /** File where database is stored (sqlite only) */
   storage?: string;
   /** Tables to export (default all) */
