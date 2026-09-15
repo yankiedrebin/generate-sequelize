@@ -728,3 +728,202 @@ describe("getTableData skipRelations", () => {
     ).toBe("belongsTo");
   });
 });
+
+describe("getTableData relationRenames", () => {
+  it("renames a relation when relationRenames is specified", () => {
+    const td = makeTData(
+      {
+        users: { id: col("integer", { primaryKey: true }) },
+        posts: {
+          id: col("integer", { primaryKey: true }),
+          user_id: col("integer"),
+        },
+      },
+      [
+        {
+          parentTable: "users",
+          parentModel: "User",
+          parentProp: "user",
+          parentId: "user_id",
+          childTable: "posts",
+          childModel: "Post",
+          childProp: "posts",
+          isOne: false,
+          isM2M: false,
+        },
+      ],
+    );
+
+    const db = getTableData(td, {
+      ...options,
+      relationRenames: { users: { posts: "authored_posts" } },
+    });
+
+    const users = db.get("users")!;
+    expect(users.relations.has("posts")).toBe(false);
+    expect(users.relations.get("authored_posts")?.type).toBe("hasMany");
+  });
+
+  // Simulates composite FK scenario: two relations target the same parent table,
+  // one gets the short name, the other gets a longer prefixed name.
+  // With relationRenamesOverwrite, renaming the long name to the short name
+  // should overwrite the existing (broken) relation.
+  it("default mode: suffixes renamed relation that collides with an existing one", () => {
+    const td = makeTData(
+      {
+        orders: {
+          id: col("integer", { primaryKey: true }),
+          tenant_id: col("integer"),
+          order_id: col("integer"),
+        },
+        order_attachments: {
+          id: col("integer", { primaryKey: true }),
+          order_id: col("integer"),
+          tenant_id: col("integer"),
+        },
+      },
+      [
+        // First relation: composite FK's tenant_id part — broken, but gets the short name
+        {
+          parentTable: "orders",
+          parentModel: "Order",
+          parentProp: "order",
+          parentId: "tenant_id",
+          childTable: "order_attachments",
+          childModel: "OrderAttachment",
+          childProp: "order_attachments",
+          isOne: false,
+          isM2M: false,
+        },
+        // Second relation: correct FK — but gets the long prefixed name
+        {
+          parentTable: "orders",
+          parentModel: "Order",
+          parentProp: "order",
+          parentId: "order_id",
+          childTable: "order_attachments",
+          childModel: "OrderAttachment",
+          childProp: "order_order_attachments",
+          isOne: false,
+          isM2M: false,
+        },
+      ],
+    );
+
+    // Default mode: renaming the long name to the short name collides,
+    // so it gets suffixed with _relation
+    const db = getTableData(td, {
+      ...options,
+      relationRenames: {
+        orders: {
+          order_order_attachments: "order_attachments",
+        },
+      },
+    });
+
+    const orders = db.get("orders")!;
+    // The first (broken) relation claimed "order_attachments"
+    expect(orders.relations.has("order_attachments")).toBe(true);
+    // The renamed relation got suffixed because of the collision
+    expect(orders.relations.has("order_attachments_relation")).toBe(true);
+  });
+
+  it("overwrite mode: renamed relation overwrites the existing one", () => {
+    const td = makeTData(
+      {
+        orders: {
+          id: col("integer", { primaryKey: true }),
+          tenant_id: col("integer"),
+          order_id: col("integer"),
+        },
+        order_attachments: {
+          id: col("integer", { primaryKey: true }),
+          order_id: col("integer"),
+          tenant_id: col("integer"),
+        },
+      },
+      [
+        // First relation: composite FK's tenant_id part — broken, but gets the short name
+        {
+          parentTable: "orders",
+          parentModel: "Order",
+          parentProp: "order",
+          parentId: "tenant_id",
+          childTable: "order_attachments",
+          childModel: "OrderAttachment",
+          childProp: "order_attachments",
+          isOne: false,
+          isM2M: false,
+        },
+        // Second relation: correct FK — but gets the long prefixed name
+        {
+          parentTable: "orders",
+          parentModel: "Order",
+          parentProp: "order",
+          parentId: "order_id",
+          childTable: "order_attachments",
+          childModel: "OrderAttachment",
+          childProp: "order_order_attachments",
+          isOne: false,
+          isM2M: false,
+        },
+      ],
+    );
+
+    // Overwrite mode: the rename directly sets on the map, overwriting the broken relation
+    const db = getTableData(td, {
+      ...options,
+      relationRenamesOverwrite: true,
+      relationRenames: {
+        orders: {
+          order_order_attachments: "order_attachments",
+        },
+      },
+    });
+
+    const orders = db.get("orders")!;
+    // The renamed relation overwrote the broken one — now points to correct FK
+    expect(orders.relations.has("order_attachments")).toBe(true);
+    expect(orders.relations.get("order_attachments")?.foreignKey).toBe(
+      "order_id",
+    );
+    // No _relation suffix version exists
+    expect(orders.relations.has("order_attachments_relation")).toBe(false);
+  });
+
+  it("overwrite mode: non-renamed relations still use collision detection", () => {
+    const td = makeTData(
+      {
+        task_types: { id: col("integer", { primaryKey: true }) },
+        crm_tasks: {
+          id: col("integer", { primaryKey: true }),
+          task_type_id: col("integer"),
+          task_type: col("text"),
+        },
+      },
+      [
+        {
+          parentTable: "task_types",
+          parentModel: "TaskType",
+          parentProp: "task_type",
+          parentId: "task_type_id",
+          childTable: "crm_tasks",
+          childModel: "CrmTask",
+          childProp: "crm_tasks",
+          isOne: false,
+          isM2M: false,
+        },
+      ],
+    );
+
+    // Even with overwrite mode on, non-renamed relations still use getRelationName
+    const tasks = getTableData(td, {
+      ...options,
+      relationRenamesOverwrite: true,
+    }).get("crm_tasks")!;
+
+    expect(tasks.columns.get("task_type")?.name).toBe("task_type");
+    expect(tasks.relations.has("task_type")).toBe(false);
+    expect(tasks.relations.get("task_type_relation")?.type).toBe("belongsTo");
+  });
+});

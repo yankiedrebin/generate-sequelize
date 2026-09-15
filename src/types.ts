@@ -76,6 +76,8 @@ export interface GeneratorOptions {
   prettierOptions?: Omit<Options, "parser" | "semi">;
   /** rename relations. example: { users: { tasks: "assigned_to_tasks" } } */
   relationRenames?: Record<string, Record<string, string>>;
+  /** When true, relationRenames bypass collision detection and directly overwrite any existing relation with the same target name (pre-1.3.0 behavior). Default false. */
+  relationRenamesOverwrite?: boolean;
   /** map renaming for join tables. use foreign key as rewrite target. example: { user_roles: { user_id: "admin" } } */
   joinTableRenames?: Record<string, Record<string, string>>;
 }

@@ -194,15 +194,36 @@ export default function getTableData(
       type: "belongsTo",
       optional: optional,
     };
-    const childRelationName = getRelationName(
-      childData,
-      options.relationRenames?.[childData.tableName]?.[parentProp] ||
-        parentProp,
-    );
-    const parentRelationName = getRelationName(
-      parentData2,
-      options.relationRenames?.[parentTableName]?.[childProp] || childProp,
-    );
+    const childRenameConfig =
+      options.relationRenames?.[childData.tableName]?.[parentProp];
+    const childRelationName =
+      childRenameConfig && options.relationRenamesOverwrite
+        ? childRenameConfig
+        : getRelationName(childData, childRenameConfig || parentProp);
+    const parentRenameConfig =
+      options.relationRenames?.[parentTableName]?.[childProp];
+    const parentRelationName =
+      parentRenameConfig && options.relationRenamesOverwrite
+        ? parentRenameConfig
+        : getRelationName(parentData2, parentRenameConfig || childProp);
+    if (
+      childRenameConfig &&
+      options.relationRenamesOverwrite &&
+      childData.relations.has(childRelationName)
+    ) {
+      console.warn(
+        `relationRenames: overwriting "${childRelationName}" on ${childData.tableName} (was fk:${childData.relations.get(childRelationName)!.foreignKey}, now fk:${parentId})`,
+      );
+    }
+    if (
+      parentRenameConfig &&
+      options.relationRenamesOverwrite &&
+      parentData2.relations.has(parentRelationName)
+    ) {
+      console.warn(
+        `relationRenames: overwriting "${parentRelationName}" on ${parentTableName} (was fk:${parentData2.relations.get(parentRelationName)!.foreignKey}, now fk:${parentId})`,
+      );
+    }
     childData.relations.set(childRelationName, childRelData);
     parentData2.relations.set(parentRelationName, parentData);
   });
