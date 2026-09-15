@@ -575,6 +575,8 @@ export interface GeneratorOptions {
   skipTables?: string[];
   /** Fields to skip exporting */
   skipFields?: string[];
+  /** FK fields whose relations should not be generated (columns are kept) */
+  skipRelations?: string[];
   /** File where database is stored (sqlite only) */
   storage?: string;
   /** Tables to export (default all) */
@@ -587,6 +589,13 @@ export interface GeneratorOptions {
   pkSuffixes?: string[];
   /** Library that output files to be written using (default sequelize)*/
   targetLib?: "sequelize" | "sequelize-typescript" | "@sequelize/core";
+  /** rename relations. example: { users: { tasks: "assigned_to_tasks" } } */
+  relationRenames?: Record<string, Record<string, string>>;
+  /** When true, relationRenames bypass collision detection and directly overwrite
+   *  any existing relation with the same target name. Default false. */
+  relationRenamesOverwrite?: boolean;
+  /** map renaming for join tables. use foreign key as rewrite target. example: { user_roles: { user_id: "admin" } } */
+  joinTableRenames?: Record<string, Record<string, string>>;
   /** Array of replacements to be applied after formatting across all files using file.replace(replacement[0], replacement[1]) */
   replacements?: [RegExp, string][];
   /** Array of tables to be considered as join tables. All foreign keys in these tables will be related to each other via belongsToMany relationship (can also be a record or table names as keys. the value can be either true for all foreign keys, an array of foreign keys, or an array of array of foreign keys to establish specific relationships)*/

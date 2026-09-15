@@ -24,6 +24,12 @@ export default function getTableData(
   columnOrder?: ColumnOrder,
 ): DBData {
   const db: DBData = new Map();
+  const skipFieldsSet = options.skipFields?.length
+    ? new Set(options.skipFields)
+    : undefined;
+  const skipRelationsSet = options.skipRelations?.length
+    ? new Set(options.skipRelations)
+    : undefined;
   Object.entries(tableData.tables)
     .sort((a, b) => a[0].localeCompare(b[0]))
     .forEach(([key, table]) => {
@@ -49,6 +55,7 @@ export default function getTableData(
         );
       }
       orderedColumns.forEach(([field, col]) => {
+        if (skipFieldsSet?.has(field)) return;
         const {
           allowNull,
           autoIncrement,
@@ -156,6 +163,10 @@ export default function getTableData(
     const parentData2 = db.get(parentTableName);
     // Skip relations that reference tables excluded via skipTables/tables
     if (!childData || !parentData2) return;
+    // Skip relations whose FK field was excluded via skipFields
+    if (skipFieldsSet?.has(parentId)) return;
+    // Skip relations for FK fields listed in skipRelations (columns are kept)
+    if (skipRelationsSet?.has(parentId)) return;
     const fk = [...childData.columns.values()].find((c) => c.name === parentId);
     if (!fk) return;
     const optional = fk.definition.allowNull;
@@ -183,15 +194,36 @@ export default function getTableData(
       type: "belongsTo",
       optional: optional,
     };
-    const childRelationName = getRelationName(
-      childData,
-      options.relationRenames?.[childData.tableName]?.[parentProp] ||
-        parentProp,
-    );
-    const parentRelationName = getRelationName(
-      parentData2,
-      options.relationRenames?.[parentTableName]?.[childProp] || childProp,
-    );
+    const childRenameConfig =
+      options.relationRenames?.[childData.tableName]?.[parentProp];
+    const childRelationName =
+      childRenameConfig && options.relationRenamesOverwrite
+        ? childRenameConfig
+        : getRelationName(childData, childRenameConfig || parentProp);
+    const parentRenameConfig =
+      options.relationRenames?.[parentTableName]?.[childProp];
+    const parentRelationName =
+      parentRenameConfig && options.relationRenamesOverwrite
+        ? parentRenameConfig
+        : getRelationName(parentData2, parentRenameConfig || childProp);
+    if (
+      childRenameConfig &&
+      options.relationRenamesOverwrite &&
+      childData.relations.has(childRelationName)
+    ) {
+      console.warn(
+        `relationRenames: overwriting "${childRelationName}" on ${childData.tableName} (was fk:${childData.relations.get(childRelationName)!.foreignKey}, now fk:${parentId})`,
+      );
+    }
+    if (
+      parentRenameConfig &&
+      options.relationRenamesOverwrite &&
+      parentData2.relations.has(parentRelationName)
+    ) {
+      console.warn(
+        `relationRenames: overwriting "${parentRelationName}" on ${parentTableName} (was fk:${parentData2.relations.get(parentRelationName)!.foreignKey}, now fk:${parentId})`,
+      );
+    }
     childData.relations.set(childRelationName, childRelData);
     parentData2.relations.set(parentRelationName, parentData);
   });
